@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Compos design tokens — from Stitch "Precision Minimal" DESIGN.md */
+@theme {
+  --color-primary: #0052cc;
+  --color-primary-dark: #003d9b;
+  --color-primary-fixed: #dae2ff;
+  --color-surface: #f9f9ff;
+  --color-surface-low: #f0f3ff;
+  --color-surface-mid: #e7eeff;
+  --color-surface-high: #dee9ff;
+  --color-surface-highest: #d7e3fb;
+  --color-card: #ffffff;
+  --color-ink: #101c2d;
+  --color-ink-soft: #434654;
+  --color-outline: #737685;
+  --color-outline-soft: #c3c6d6;
+  --color-secondary: #4c5e85;
+  --color-secondary-fixed: #d8e2ff;
+  --color-tier-red: #dc2626;
+  --color-tier-amber: #d97706;
+  --color-tier-green: #16a34a;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+}
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* Modern button feel: subtle press animation used across the app */
+.btn-press {
+  transition: transform 150ms ease, background-color 200ms ease,
+    box-shadow 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+}
+
+.bento-card {
+  transition: transform 200ms ease, box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+.bento-card:hover {
+  box-shadow: 0 4px 20px rgba(76, 94, 133, 0.12);
+}
+.bento-card:active {
+  transform: scale(0.97);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-outline-soft);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }

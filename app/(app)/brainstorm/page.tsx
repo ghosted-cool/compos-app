@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import ChatPanel from "@/components/ChatPanel";
 import ShareModal from "@/components/ShareModal";
 import { createClient } from "@/lib/supabase/client";
+import { ensureProfile } from "@/lib/profile";
 import type { Board, Chat } from "@/lib/types";
 
 const BoardCanvas = dynamic(() => import("@/components/BoardCanvas"), {
@@ -31,12 +32,18 @@ function BrainstormInner() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Boards have a FK to public.users — make sure the profile row exists
+    // before any board is created.
+    await ensureProfile(supabase);
 
     const [boardsRes, chatsRes] = await Promise.all([
       supabase
@@ -50,30 +57,44 @@ function BrainstormInner() {
         .limit(5),
     ]);
     if (chatsRes.data) setChats(chatsRes.data);
+    if (boardsRes.error) {
+      setLoadError(boardsRes.error.message);
+      return;
+    }
 
     let list = boardsRes.data ?? [];
     if (list.length === 0) {
-      const { data: created } = await supabase
+      const { data: created, error: createError } = await supabase
         .from("boards")
         .insert({ user_id: user.id, title: "My board" })
         .select("id,title")
         .single();
+      if (createError) {
+        setLoadError(createError.message);
+        return;
+      }
       if (created) list = [created];
     }
     setBoards(list);
 
     const targetId = boardParam ?? list[0]?.id;
     if (targetId) {
-      const { data: full } = await supabase
+      const { data: full, error: fullError } = await supabase
         .from("boards")
         .select("*")
         .eq("id", targetId)
         .maybeSingle();
+      if (fullError) {
+        setLoadError(fullError.message);
+        return;
+      }
       if (full) {
         setBoard(full);
         if (boardParam && !list.some((b) => b.id === full.id)) {
           setBoards((bs) => [{ id: full.id, title: full.title }, ...bs]);
         }
+      } else {
+        setLoadError("This board doesn't exist or you don't have access to it.");
       }
     }
   }, [supabase, boardParam]);
@@ -199,6 +220,19 @@ function BrainstormInner() {
         <div className="flex-1 relative">
           {board ? (
             <BoardCanvas boardId={board.id} initialData={board.board_data} />
+          ) : loadError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+              <span className="material-symbols-outlined text-[40px] text-tier-red">error</span>
+              <p className="text-sm text-ink-soft max-w-md">
+                Couldn&apos;t load the board: {loadError}
+              </p>
+              <button
+                onClick={load}
+                className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-ink-soft text-sm">
               Loading board…

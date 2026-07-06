@@ -34,6 +34,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
+  // Already signed in — never show the login screen again.
+  if (user && pathname.startsWith("/login")) {
+    const url = request.nextUrl.clone();
+    const next = url.searchParams.get("next");
+    url.pathname =
+      next && next.startsWith("/") && !next.startsWith("/login") ? next : "/";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isPublic && !pathname.startsWith("/api")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

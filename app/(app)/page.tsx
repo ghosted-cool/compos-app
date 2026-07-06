@@ -15,10 +15,10 @@ export default function HomePage() {
     <div className="flex-1 px-4 md:px-8 pb-16 pt-6 md:pt-10">
       <div className="hidden md:flex justify-center mb-10">
         <Image
-          src="/logo.png"
+          src="/arrow-logo.png"
           alt="Compos"
-          width={96}
-          height={96}
+          width={120}
+          height={120}
           className="object-contain transition-transform duration-300 hover:scale-105"
           priority
         />

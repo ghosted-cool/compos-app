@@ -1,19 +1,42 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { LANGUAGES, PENDING_LANGUAGE_KEY } from "@/lib/languages";
 
 function LoginInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [language, setLanguage] = useState("en");
   const error = searchParams.get("error");
   const next = searchParams.get("next") ?? "/";
 
+  // Already signed in? Straight to the app — no second login needed.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace(next.startsWith("/") ? next : "/");
+    });
+  }, [router, next]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(PENDING_LANGUAGE_KEY);
+    if (saved && LANGUAGES.some((l) => l.code === saved)) setLanguage(saved);
+  }, []);
+
+  function pickLanguage(code: string) {
+    setLanguage(code);
+    // Survives the OAuth redirect; synced into the profile after login.
+    window.localStorage.setItem(PENDING_LANGUAGE_KEY, code);
+  }
+
   async function signIn() {
     setLoading(true);
+    window.localStorage.setItem(PENDING_LANGUAGE_KEY, language);
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -43,6 +66,30 @@ function LoginInner() {
             Sign-in failed. Please try again.
           </p>
         )}
+        <label className="w-full text-left">
+          <span className="text-xs font-semibold text-ink-soft uppercase tracking-wider">
+            Language
+          </span>
+          <div className="relative mt-1">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-soft text-[18px] pointer-events-none">
+              language
+            </span>
+            <select
+              value={language}
+              onChange={(e) => pickLanguage(e.target.value)}
+              className="w-full appearance-none pl-9 pr-8 py-2.5 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary cursor-pointer"
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+            <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-ink-soft text-[18px] pointer-events-none">
+              expand_more
+            </span>
+          </div>
+        </label>
         <button
           onClick={signIn}
           disabled={loading}

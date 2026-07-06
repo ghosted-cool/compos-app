@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ensureProfile } from "@/lib/profile";
 import type { Chat, Profile, Task } from "@/lib/types";
 
 const NAV = [
@@ -37,7 +38,7 @@ export default function Sidebar() {
     if (!user) return;
 
     const [profileRes, tasksRes, chatsRes] = await Promise.all([
-      supabase.from("users").select("*").eq("id", user.id).single(),
+      ensureProfile(supabase),
       supabase
         .from("tasks")
         .select("*")
@@ -51,7 +52,7 @@ export default function Sidebar() {
         .order("updated_at", { ascending: false })
         .limit(20),
     ]);
-    if (profileRes.data) setProfile(profileRes.data);
+    if (profileRes) setProfile(profileRes);
     if (tasksRes.data) setTasks(tasksRes.data);
     if (chatsRes.data) setChats(chatsRes.data);
   }, [supabase]);
@@ -103,13 +104,22 @@ export default function Sidebar() {
     <>
       {/* Header: logo + name + tagline */}
       <div className="mb-5 mt-1 px-2 flex items-start gap-3">
-        <Image
-          src="/logo.png"
-          alt="Compos"
-          width={36}
-          height={36}
-          className="object-contain mt-0.5"
-        />
+        {profile?.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatar_url}
+            alt="Avatar"
+            className="w-9 h-9 rounded-full object-cover mt-0.5 border border-outline-soft"
+          />
+        ) : (
+          <Image
+            src="/logo.png"
+            alt="Compos"
+            width={36}
+            height={36}
+            className="object-contain mt-0.5"
+          />
+        )}
         <div className="min-w-0">
           <h2 className="font-semibold text-primary text-base leading-tight truncate">
             {firstName ? `${firstName}'s Domain` : "Compos"}
@@ -248,6 +258,18 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-surface-high pt-2">
+        <Link
+          href="/settings"
+          onClick={() => setMobileOpen(false)}
+          className={`btn-press flex items-center gap-3 px-3 py-1.5 w-full rounded-lg text-sm ${
+            pathname.startsWith("/settings")
+              ? "text-primary font-semibold bg-primary/10"
+              : "text-ink-soft hover:bg-surface-high"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[20px]">settings</span>
+          Settings
+        </Link>
         <button
           onClick={signOut}
           className="btn-press flex items-center gap-3 px-3 py-1.5 w-full text-ink-soft rounded-lg hover:bg-surface-high text-sm"

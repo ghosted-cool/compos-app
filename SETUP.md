@@ -7,6 +7,10 @@ The code is complete and builds. These steps need the Supabase / Google dashboar
 2. Paste the entire contents of `supabase/migrations/0001_init.sql` and click **Run**.
    It creates all 11 tables, row-level security, the profile trigger, the chat rate-limit
    function, and the share-redemption function.
+3. Then run `supabase/migrations/0002_fixes_and_features.sql` the same way. **This one is
+   required even if 0001 was already run** — it repairs profile rows for accounts created
+   before 0001 existed (the cause of projects/boards/calendar failing to save), and adds
+   the language preference, budget currency, planned costs, and the avatar storage bucket.
 
 ## 2. Enable Google auth in Supabase
 1. Supabase dashboard → **Authentication → Providers → Google** → enable.

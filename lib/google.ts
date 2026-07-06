@@ -26,7 +26,15 @@ export async function getAccessToken(userId: string): Promise<string> {
 
   if (!row) throw new CalendarAuthError();
 
-  const accessToken = decrypt(row.access_token);
+  let accessToken: string;
+  try {
+    accessToken = decrypt(row.access_token);
+  } catch {
+    // Token encrypted with a different TOKEN_ENCRYPTION_KEY (e.g. local vs
+    // deploy) — treat as not connected so the user just re-signs in.
+    await admin.from("calendar_tokens").delete().eq("user_id", userId);
+    throw new CalendarAuthError();
+  }
   const expiresSoon =
     !row.expiry || new Date(row.expiry).getTime() < Date.now() + 2 * 60 * 1000;
 
@@ -40,7 +48,12 @@ export async function getAccessToken(userId: string): Promise<string> {
     return accessToken;
   }
 
-  const refreshToken = decrypt(row.refresh_token);
+  let refreshToken: string;
+  try {
+    refreshToken = decrypt(row.refresh_token);
+  } catch {
+    return accessToken;
+  }
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -53,7 +66,12 @@ export async function getAccessToken(userId: string): Promise<string> {
   });
 
   if (!res.ok) {
-    console.error("Google token refresh failed", await res.text());
+    const body = await res.text();
+    console.error("Google token refresh failed", res.status, body);
+    if (body.includes("invalid_grant")) {
+      // Refresh token was revoked — clear it so the next sign-in stores a fresh one.
+      await admin.from("calendar_tokens").delete().eq("user_id", userId);
+    }
     throw new CalendarAuthError("Google session expired — please sign in again");
   }
 

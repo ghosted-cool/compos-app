@@ -2,17 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ensureProfile } from "@/lib/profile";
 import type { Project } from "@/lib/types";
 
 export default function ProjectsPage() {
   const supabase = createClient();
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -43,21 +48,30 @@ export default function ProjectsPage() {
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
-    if (!t) return;
+    if (!t || submitting) return;
+    setSubmitting(true);
+    setCreateError(null);
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
+    if (!user) {
+      setSubmitting(false);
+      return;
+    }
+    // Projects have a FK to public.users — make sure the profile row exists.
+    await ensureProfile(supabase);
+    const { data, error } = await supabase
       .from("projects")
       .insert({ owner_id: user.id, title: t, description: description.trim() || null })
       .select()
       .single();
+    setSubmitting(false);
+    if (error) {
+      setCreateError(error.message);
+      return;
+    }
     if (data) {
-      setProjects((p) => [data, ...p]);
-      setTitle("");
-      setDescription("");
-      setCreating(false);
+      router.push(`/projects/${data.id}`);
     }
   }
 
@@ -96,6 +110,11 @@ export default function ProjectsPage() {
             rows={2}
             className="w-full px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary resize-none"
           />
+          {createError && (
+            <p className="text-sm text-tier-red bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              Could not create the project: {createError}
+            </p>
+          )}
           <div className="flex gap-2 justify-end">
             <button
               type="button"
@@ -106,9 +125,10 @@ export default function ProjectsPage() {
             </button>
             <button
               type="submit"
-              className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
+              disabled={submitting}
+              className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60"
             >
-              Create
+              {submitting ? "Creating…" : "Create"}
             </button>
           </div>
         </form>

@@ -22,6 +22,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<GoogleEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notConnected, setNotConnected] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
@@ -37,6 +38,7 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setNotConnected(false);
+    setLoadError(false);
 
     const timeMin = new Date(
       monthStart.getFullYear(),
@@ -49,25 +51,34 @@ export default function CalendarPage() {
       monthEnd.getDate() + 7
     ).toISOString();
 
-    const [evRes, taskRes] = await Promise.all([
-      fetch(`/api/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`),
-      supabase
-        .from("tasks")
-        .select("*")
-        .not("due_date", "is", null)
-        .gte("due_date", ymd(monthStart))
-        .lte("due_date", ymd(monthEnd)),
-    ]);
+    try {
+      const [evRes, taskRes] = await Promise.all([
+        fetch(`/api/calendar/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`),
+        supabase
+          .from("tasks")
+          .select("*")
+          .not("due_date", "is", null)
+          .gte("due_date", ymd(monthStart))
+          .lte("due_date", ymd(monthEnd)),
+      ]);
 
-    if (evRes.status === 401) {
-      setNotConnected(true);
-      setEvents([]);
-    } else if (evRes.ok) {
-      const data = await evRes.json();
-      setEvents(data.events ?? []);
+      if (evRes.status === 401) {
+        setNotConnected(true);
+        setEvents([]);
+      } else if (evRes.ok) {
+        const data = await evRes.json();
+        setEvents(data.events ?? []);
+      } else {
+        setLoadError(true);
+        setEvents([]);
+      }
+      if (taskRes.data) setTasks(taskRes.data);
+    } catch (e) {
+      console.error("Calendar load failed", e);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    if (taskRes.data) setTasks(taskRes.data);
-    setLoading(false);
   }, [supabase, monthStart, monthEnd]);
 
   useEffect(() => {
@@ -168,6 +179,16 @@ export default function CalendarPage() {
           </button>
         </div>
       </header>
+
+      {loadError && (
+        <div className="mb-4 flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-tier-red">
+          <span className="material-symbols-outlined">error</span>
+          <span>Couldn&apos;t reach Google Calendar. </span>
+          <button onClick={load} className="btn-press font-semibold underline">
+            Retry
+          </button>
+        </div>
+      )}
 
       {notConnected && (
         <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-tier-amber">

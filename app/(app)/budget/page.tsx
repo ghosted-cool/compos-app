@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import BudgetGauge from "@/components/BudgetGauge";
 import { createClient } from "@/lib/supabase/client";
-import { EXPENSE_CATEGORIES, type Budget, type Expense } from "@/lib/types";
+import { CURRENCIES, currencySymbol } from "@/lib/currencies";
+import {
+  EXPENSE_CATEGORIES,
+  type Budget,
+  type Expense,
+  type PlannedCost,
+} from "@/lib/types";
 
 const CategoryDonut = dynamic(() => import("@/components/CategoryDonut"), { ssr: false });
 
@@ -26,12 +32,20 @@ function monthKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
 export default function BudgetPage() {
   const supabase = createClient();
   const month = monthKey();
 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [planned, setPlanned] = useState<PlannedCost[]>([]);
+  const [currency, setCurrency] = useState("USD");
   const [userId, setUserId] = useState<string | null>(null);
   const [editingBudgets, setEditingBudgets] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -40,6 +54,9 @@ export default function BudgetPage() {
   const [category, setCategory] = useState<string>("Food");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [plannedTitle, setPlannedTitle] = useState("");
+  const [plannedAmount, setPlannedAmount] = useState("");
+  const [plannedDate, setPlannedDate] = useState("");
 
   const load = useCallback(async () => {
     const {
@@ -48,7 +65,7 @@ export default function BudgetPage() {
     if (!user) return;
     setUserId(user.id);
     const monthStart = `${month}-01`;
-    const [budgetRes, expenseRes] = await Promise.all([
+    const [budgetRes, expenseRes, plannedRes, anyBudgetRes] = await Promise.all([
       supabase.from("budgets").select("*").eq("month", month),
       supabase
         .from("expenses")
@@ -56,14 +73,24 @@ export default function BudgetPage() {
         .gte("date", monthStart)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false }),
+      supabase
+        .from("planned_costs")
+        .select("*")
+        .gte("due_date", ymd(new Date()))
+        .order("due_date", { ascending: true }),
+      supabase.from("budgets").select("currency").limit(1),
     ]);
     if (budgetRes.data) setBudgets(budgetRes.data);
     if (expenseRes.data) setExpenses(expenseRes.data);
+    if (plannedRes.data) setPlanned(plannedRes.data);
+    if (anyBudgetRes.data?.[0]?.currency) setCurrency(anyBudgetRes.data[0].currency);
   }, [supabase, month]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const sym = currencySymbol(currency);
 
   const overall = budgets.find((b) => b.category === null)?.monthly_limit ?? 0;
   const categoryBudgets = useMemo(
@@ -72,7 +99,7 @@ export default function BudgetPage() {
   );
   const effectiveBudget =
     overall > 0
-      ? overall
+      ? Number(overall)
       : Object.values(categoryBudgets).reduce((a, b) => a + Number(b), 0);
 
   const spent = expenses.reduce((a, e) => a + Number(e.amount), 0);
@@ -82,7 +109,18 @@ export default function BudgetPage() {
   const dayOfMonth = now.getDate();
   const daysLeft = daysInMonth - dayOfMonth + 1;
   const paceFraction = dayOfMonth / daysInMonth;
-  const dailyAllowance = effectiveBudget > 0 ? Math.max(0, (effectiveBudget - spent) / daysLeft) : 0;
+
+  // Planned costs due within the rest of this month reduce what's left to
+  // spend freely, so the daily allowance accounts for them up front.
+  const endOfMonth = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  const todayStr = ymd(now);
+  const plannedThisMonth = planned
+    .filter((p) => p.due_date >= todayStr && p.due_date <= endOfMonth)
+    .reduce((a, p) => a + Number(p.amount), 0);
+  const dailyAllowance =
+    effectiveBudget > 0
+      ? Math.max(0, (effectiveBudget - spent - plannedThisMonth) / daysLeft)
+      : 0;
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -93,6 +131,25 @@ export default function BudgetPage() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [expenses]);
+
+  async function changeCurrency(code: string) {
+    setCurrency(code);
+    if (!userId) return;
+    const { data: existing } = await supabase
+      .from("budgets")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      await supabase.from("budgets").update({ currency: code }).eq("user_id", userId);
+    } else {
+      // No budget rows yet — keep the preference on a zero overall row.
+      await supabase
+        .from("budgets")
+        .insert({ user_id: userId, category: null, monthly_limit: 0, month, currency: code });
+    }
+    load();
+  }
 
   function openBudgetEditor() {
     const d: Record<string, string> = {
@@ -108,23 +165,31 @@ export default function BudgetPage() {
   async function saveBudgets() {
     if (!userId) return;
     setEditingBudgets(false);
-    const rows: { user_id: string; category: string | null; monthly_limit: number; month: string }[] = [];
-    const toDelete: (string | null)[] = [];
+    const rows: {
+      user_id: string;
+      category: string | null;
+      monthly_limit: number;
+      month: string;
+      currency: string;
+    }[] = [];
     const parse = (s: string) => {
       const n = parseFloat(s);
       return isNaN(n) || n < 0 ? 0 : n;
     };
     const overallVal = parse(draft.__overall ?? "");
-    if (overallVal > 0) rows.push({ user_id: userId, category: null, monthly_limit: overallVal, month });
-    else toDelete.push(null);
+    if (overallVal > 0)
+      rows.push({ user_id: userId, category: null, monthly_limit: overallVal, month, currency });
     for (const c of EXPENSE_CATEGORIES) {
       const v = parse(draft[c] ?? "");
-      if (v > 0) rows.push({ user_id: userId, category: c, monthly_limit: v, month });
-      else toDelete.push(c);
+      if (v > 0)
+        rows.push({ user_id: userId, category: c, monthly_limit: v, month, currency });
     }
     // Replace this month's budgets wholesale (simple + predictable)
     await supabase.from("budgets").delete().eq("month", month).eq("user_id", userId);
-    if (rows.length > 0) await supabase.from("budgets").insert(rows);
+    if (rows.length > 0) {
+      const { error } = await supabase.from("budgets").insert(rows);
+      if (error) alert("Could not save the budget: " + error.message);
+    }
     load();
   }
 
@@ -133,11 +198,15 @@ export default function BudgetPage() {
     if (!userId) return;
     const n = parseFloat(amount);
     if (isNaN(n) || n <= 0) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("expenses")
       .insert({ user_id: userId, amount: n, category, note: note.trim() || null, date })
       .select()
       .single();
+    if (error) {
+      alert("Could not log the expense: " + error.message);
+      return;
+    }
     if (data) setExpenses((prev) => [data, ...prev]);
     setAmount("");
     setNote("");
@@ -147,6 +216,46 @@ export default function BudgetPage() {
   async function deleteExpense(id: string) {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     await supabase.from("expenses").delete().eq("id", id);
+  }
+
+  async function addPlanned(e: React.FormEvent) {
+    e.preventDefault();
+    if (!userId) return;
+    const n = parseFloat(plannedAmount);
+    const title = plannedTitle.trim();
+    if (!title || isNaN(n) || n <= 0 || !plannedDate) return;
+    const { data, error } = await supabase
+      .from("planned_costs")
+      .insert({ user_id: userId, title, amount: n, due_date: plannedDate })
+      .select()
+      .single();
+    if (error) {
+      alert("Could not add the planned cost: " + error.message);
+      return;
+    }
+    if (data) {
+      setPlanned((prev) =>
+        [...prev, data].sort((a, b) => a.due_date.localeCompare(b.due_date))
+      );
+    }
+    setPlannedTitle("");
+    setPlannedAmount("");
+    setPlannedDate("");
+  }
+
+  async function deletePlanned(id: string) {
+    setPlanned((prev) => prev.filter((p) => p.id !== id));
+    await supabase.from("planned_costs").delete().eq("id", id);
+  }
+
+  function daysUntil(dateStr: string) {
+    const diff = Math.round(
+      (new Date(dateStr + "T00:00:00").getTime() - new Date(todayStr + "T00:00:00").getTime()) /
+        86400000
+    );
+    if (diff <= 0) return "today";
+    if (diff === 1) return "tomorrow";
+    return `in ${diff} days`;
   }
 
   const fmt = (n: number) =>
@@ -161,7 +270,30 @@ export default function BudgetPage() {
             {now.toLocaleString(undefined, { month: "long", year: "numeric" })}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          <div className="relative">
+            <select
+              value={currency}
+              onChange={(e) => changeCurrency(e.target.value)}
+              title="Currency"
+              className="appearance-none pl-3 pr-8 py-2 text-sm bg-card border border-outline-soft rounded-lg outline-none focus:border-primary cursor-pointer font-medium"
+            >
+              {CURRENCIES.slice(0, 3).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} · {c.symbol.trim()} — {c.name}
+                </option>
+              ))}
+              <option disabled>──────────</option>
+              {CURRENCIES.slice(3).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} · {c.symbol.trim()} — {c.name}
+                </option>
+              ))}
+            </select>
+            <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-ink-soft text-[18px] pointer-events-none">
+              expand_more
+            </span>
+          </div>
           <button
             onClick={openBudgetEditor}
             className="btn-press flex items-center gap-2 border border-outline-soft bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface-low"
@@ -186,9 +318,9 @@ export default function BudgetPage() {
             <p className="text-xs font-bold uppercase tracking-wider text-ink-soft mb-1">
               Spent this month
             </p>
-            <p className="text-4xl font-semibold tracking-tight">${fmt(spent)}</p>
+            <p className="text-4xl font-semibold tracking-tight">{sym}{fmt(spent)}</p>
             <p className="text-sm text-ink-soft mt-1">
-              of {effectiveBudget > 0 ? `$${fmt(effectiveBudget)}` : "no budget set"}
+              of {effectiveBudget > 0 ? `${sym}${fmt(effectiveBudget)}` : "no budget set"}
             </p>
             {/* progress bar */}
             <div className="w-full bg-surface-highest rounded-full h-2.5 overflow-hidden mt-4">
@@ -214,13 +346,106 @@ export default function BudgetPage() {
               Daily allowance
             </p>
             <p className="text-4xl font-semibold tracking-tight text-primary">
-              ${fmt(dailyAllowance)}
+              {sym}{fmt(dailyAllowance)}
             </p>
             <p className="text-sm text-ink-soft mt-1">
               per day · {daysLeft} day{daysLeft === 1 ? "" : "s"} left
             </p>
+            {plannedThisMonth > 0 && (
+              <p className="text-xs text-tier-amber mt-1.5 font-medium">
+                {sym}{fmt(plannedThisMonth)} in planned costs already set aside
+              </p>
+            )}
           </div>
         </div>
+      </section>
+
+      {/* Planned costs / upcoming payments */}
+      <section className="bg-card border border-outline-soft rounded-xl p-5 mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="material-symbols-outlined text-primary text-[20px]">event_upcoming</span>
+          <h3 className="font-semibold">Planned costs</h3>
+        </div>
+        <p className="text-xs text-ink-soft mb-4">
+          Upcoming payments you already know about. Anything due before the end of the month is
+          subtracted from the daily allowance above.
+        </p>
+
+        <form onSubmit={addPlanned} className="flex flex-wrap gap-2 mb-4">
+          <input
+            value={plannedTitle}
+            onChange={(e) => setPlannedTitle(e.target.value)}
+            placeholder="e.g. Car payment"
+            className="flex-1 min-w-[160px] px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary"
+          />
+          <div className="flex items-center gap-1 bg-surface border border-outline-soft rounded-lg px-3 focus-within:border-primary">
+            <span className="text-sm text-ink-soft">{sym}</span>
+            <input
+              inputMode="decimal"
+              value={plannedAmount}
+              onChange={(e) => setPlannedAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-20 py-2 text-sm bg-transparent outline-none font-mono"
+            />
+          </div>
+          <input
+            type="date"
+            value={plannedDate}
+            min={todayStr}
+            onChange={(e) => setPlannedDate(e.target.value)}
+            className="px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary text-ink-soft"
+          />
+          <button
+            type="submit"
+            className="btn-press flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            Plan it
+          </button>
+        </form>
+
+        {planned.length === 0 ? (
+          <p className="text-sm text-ink-soft">No upcoming payments planned.</p>
+        ) : (
+          <div className="space-y-1">
+            {planned.map((p) => {
+              const counted = p.due_date >= todayStr && p.due_date <= endOfMonth;
+              return (
+                <div
+                  key={p.id}
+                  className="group flex items-center justify-between p-3 rounded-lg hover:bg-surface-low border border-transparent hover:border-outline-soft transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-amber-50 text-tier-amber flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">schedule</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{p.title}</p>
+                      <p className="text-xs text-ink-soft">
+                        {new Date(p.due_date + "T00:00:00").toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        · {daysUntil(p.due_date)}
+                        {!counted && " · next month — not counted yet"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">{sym}{fmt(Number(p.amount))}</span>
+                    <button
+                      onClick={() => deletePlanned(p.id)}
+                      className="btn-press opacity-0 group-hover:opacity-100 text-ink-soft hover:text-tier-red transition-opacity"
+                      title="Remove planned cost"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -251,11 +476,11 @@ export default function BudgetPage() {
                               : "text-ink-soft"
                           }`}
                         >
-                          / ${fmt(Number(categoryBudgets[c.name]))}
+                          / {sym}{fmt(Number(categoryBudgets[c.name]))}
                         </span>
                       )}
                     </div>
-                    <span className="font-semibold">${fmt(c.value)}</span>
+                    <span className="font-semibold">{sym}{fmt(c.value)}</span>
                   </div>
                 ))}
               </div>
@@ -293,7 +518,7 @@ export default function BudgetPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold">-${fmt(Number(e.amount))}</span>
+                    <span className="text-sm font-bold">-{sym}{fmt(Number(e.amount))}</span>
                     <button
                       onClick={() => deleteExpense(e.id)}
                       className="btn-press opacity-0 group-hover:opacity-100 text-ink-soft hover:text-tier-red transition-opacity"
@@ -329,7 +554,7 @@ export default function BudgetPage() {
                   <td className="py-2.5 font-semibold">Overall</td>
                   <td className="py-2 w-32">
                     <div className="flex items-center gap-1">
-                      <span className="text-ink-soft">$</span>
+                      <span className="text-ink-soft">{sym}</span>
                       <input
                         inputMode="decimal"
                         value={draft.__overall ?? ""}
@@ -352,7 +577,7 @@ export default function BudgetPage() {
                     </td>
                     <td className="py-1.5 w-32">
                       <div className="flex items-center gap-1">
-                        <span className="text-ink-soft">$</span>
+                        <span className="text-ink-soft">{sym}</span>
                         <input
                           inputMode="decimal"
                           value={draft[c] ?? ""}
@@ -397,7 +622,7 @@ export default function BudgetPage() {
           >
             <h2 className="text-lg font-semibold">Add expense</h2>
             <div className="flex items-center gap-2">
-              <span className="text-2xl text-ink-soft">$</span>
+              <span className="text-2xl text-ink-soft">{sym}</span>
               <input
                 autoFocus
                 inputMode="decimal"

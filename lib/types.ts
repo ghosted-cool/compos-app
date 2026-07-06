@@ -7,6 +7,7 @@ export interface Profile {
   name: string | null;
   avatar_url: string | null;
   tagline: string;
+  language: string;
   created_at: string;
 }
 
@@ -69,6 +70,16 @@ export interface Budget {
   category: string | null;
   monthly_limit: number;
   month: string;
+  currency: string;
+}
+
+export interface PlannedCost {
+  id: string;
+  user_id: string;
+  title: string;
+  amount: number;
+  due_date: string;
+  created_at: string;
 }
 
 export interface Share {

@@ -6,6 +6,33 @@ import { ensureProfile } from "@/lib/profile";
 import { LANGUAGES } from "@/lib/languages";
 import type { Profile } from "@/lib/types";
 
+/** Center-crop to a square and downscale, returning a compact JPEG data URL. */
+function downscaleToDataUrl(file: File, size: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas unavailable"));
+        return;
+      }
+      const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Not a readable image"));
+    };
+    img.src = url;
+  });
+}
+
 export default function SettingsPage() {
   const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -66,33 +93,30 @@ export default function SettingsPage() {
 
   async function uploadAvatar(file: File) {
     if (!profile) return;
-    if (file.size > 4 * 1024 * 1024) {
-      flash("err", "Image must be under 4 MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      flash("err", "Image must be under 10 MB.");
       return;
     }
     setUploading(true);
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    const path = `${profile.id}/avatar-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (upErr) {
+    let dataUrl: string;
+    try {
+      // Downscaled to a small square and stored inline on the profile row —
+      // no storage bucket needed.
+      dataUrl = await downscaleToDataUrl(file, 256);
+    } catch {
       setUploading(false);
-      flash("err", "Upload failed — make sure the avatars bucket exists (migration 0002).");
+      flash("err", "That file doesn't look like a readable image.");
       return;
     }
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(path);
     const { error } = await supabase
       .from("users")
-      .update({ avatar_url: publicUrl })
+      .update({ avatar_url: dataUrl })
       .eq("id", profile.id);
     setUploading(false);
     if (error) {
       flash("err", "Could not save the avatar.");
     } else {
-      setProfile({ ...profile, avatar_url: publicUrl });
+      setProfile({ ...profile, avatar_url: dataUrl });
       flash("ok", "Avatar updated.");
     }
   }

@@ -77,16 +77,9 @@ export default function LandingPage() {
             priority
             className="object-contain mx-auto mb-8"
           />
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-full px-3 py-1 mb-5">
-            <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
-            {t("landing.badge")}
-          </span>
           <h1 className="text-4xl md:text-6xl font-semibold tracking-tight text-balance">
             {t("landing.headline")}
           </h1>
-          <p className="mt-5 text-base md:text-lg text-ink-soft max-w-xl mx-auto text-balance">
-            {t("landing.subheadline")}
-          </p>
           <div className="mt-9">
             <button
               onClick={signIn}

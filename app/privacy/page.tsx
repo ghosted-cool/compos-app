@@ -23,12 +23,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold mb-2">Who we are</h2>
             <p>
-              Compos is a personal organization application operated by Gabriele Acquaroli for
-              himself and a small group of invited friends. It is not a commercial product and is
-              not offered to the general public. For any privacy question or request, contact{" "}
-              <a href="mailto:acquaroligabriele@gmail.com" className="text-primary hover:underline">
-                acquaroligabriele@gmail.com
-              </a>.
+              Compos is a personal organization application operated by Gabriele Acquaroli. This
+              product is currently in Beta Testing Mode. For any questions or requests, write at{" "}
+              <a href="mailto:contact@ghosted.cool" className="text-primary hover:underline">
+                contact@ghosted.cool
+              </a>
             </p>
           </section>
 

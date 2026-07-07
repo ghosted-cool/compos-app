@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import type { ChatMessage } from "@/lib/types";
 
@@ -14,6 +15,7 @@ export default function ChatPanel({
   onChatCreated?: (id: string) => void;
 }) {
   const supabase = createClient();
+  const { t, i18n } = useTranslation();
   const [chatId, setChatId] = useState<string | null>(initialChatId ?? null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -77,7 +79,7 @@ export default function ChatPanel({
         if (!user) throw new Error("Not signed in");
         const { data: created, error } = await supabase
           .from("chats")
-          .insert({ user_id: user.id, title: "New chat" })
+          .insert({ user_id: user.id, title: t("chat.newChat") })
           .select("id")
           .single();
         if (error || !created) throw new Error("Could not create chat");
@@ -96,7 +98,7 @@ export default function ChatPanel({
         const data = await res.json();
         setRemaining(0);
         setResetAt(data.resetAt ?? null);
-        setLimitError(data.message ?? "Chat limit reached.");
+        setLimitError(data.message ?? t("chat.limitReached"));
         setMessages((m) => m.slice(0, -2)); // drop optimistic pair
         setInput(text);
         return;
@@ -130,7 +132,7 @@ export default function ChatPanel({
         const copy = [...m];
         copy[copy.length - 1] = {
           role: "assistant",
-          content: "Something went wrong. Please try again.",
+          content: t("chat.error"),
         };
         return copy;
       });
@@ -140,7 +142,7 @@ export default function ChatPanel({
   }
 
   const resetLabel = resetAt
-    ? new Date(resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(resetAt).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" })
     : null;
 
   return (
@@ -153,7 +155,7 @@ export default function ChatPanel({
       >
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-[20px]">chat_bubble</span>
-          <span className="text-sm font-semibold">Chat</span>
+          <span className="text-sm font-semibold">{t("chat.title")}</span>
         </div>
         {remaining !== null && (
           <span
@@ -164,9 +166,9 @@ export default function ChatPanel({
                   ? "bg-amber-50 text-tier-amber"
                   : "bg-primary/10 text-primary"
             }`}
-            title={resetLabel ? `Resets at ${resetLabel}` : undefined}
+            title={resetLabel ? t("chat.resetsAt", { time: resetLabel }) : undefined}
           >
-            {remaining} / 10 left today
+            {t("chat.remaining", { count: remaining })}
           </span>
         )}
       </div>
@@ -176,8 +178,8 @@ export default function ChatPanel({
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-ink-soft">
             <span className="material-symbols-outlined text-[40px] text-outline-soft">forum</span>
-            <p className="text-sm">Ask anything — powered by Claude Haiku 4.5.</p>
-            <p className="text-xs">10 requests per rolling 24 hours.</p>
+            <p className="text-sm">{t("chat.askAnything")}</p>
+            <p className="text-xs">{t("chat.limitNote")}</p>
           </div>
         )}
         <div className={`space-y-4 ${compact ? "" : "max-w-3xl mx-auto"}`}>
@@ -223,7 +225,7 @@ export default function ChatPanel({
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={remaining === 0 ? "Limit reached — try again later" : "Message…"}
+            placeholder={remaining === 0 ? t("chat.limitPlaceholder") : t("chat.messagePlaceholder")}
             disabled={sending || remaining === 0}
             className="flex-1 px-3.5 py-2.5 text-sm bg-surface border border-outline-soft rounded-xl outline-none focus:border-primary transition-colors disabled:opacity-60"
           />

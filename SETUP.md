@@ -13,6 +13,10 @@ The code is complete and builds. These steps need the Supabase / Google dashboar
    ("new row violates row-level security policy"), repairs profile rows for accounts
    created before 0001 existed, and adds the language preference, budget currency, and
    planned costs. No storage bucket is needed — avatars are stored on the profile row.
+4. Then run `supabase/migrations/0003_boards_cascade_workspace.sql` the same way (safe to
+   re-run). It makes deleting a project cascade to its tasks and boards, enforces one
+   Brainstorm board per project, and adds the editable workspace label column
+   (`users.workspace_label`) used in the sidebar title.
 
 ## 2. Enable Google auth in Supabase
 1. Supabase dashboard → **Authentication → Providers → Google** → enable.
@@ -31,6 +35,16 @@ GOOGLE_CLIENT_SECRET=<the same secret you put in Supabase>
 ```
 Without it, calendar access works for ~1 hour after each sign-in; with it, Compos silently
 refreshes the Google token using the stored refresh token.
+
+## 3b. Enable the Google Calendar API (required for calendar sync)
+The OAuth flow and token refresh already work, but Google rejects every Calendar call with
+403 `accessNotConfigured` because the **Google Calendar API is disabled** in the Google
+Cloud project. Enable it here (project 106788605190):
+
+https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=106788605190
+
+Click **Enable**, wait a few minutes for it to propagate, then reload the Calendar page in
+Compos. Until then the app shows a dedicated "Calendar API disabled" banner instead of events.
 
 ## 4. OAuth consent screen (for Production review)
 - App domain / privacy policy URL: `https://compos.ghosted.cool/privacy`

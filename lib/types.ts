@@ -8,6 +8,7 @@ export interface Profile {
   avatar_url: string | null;
   tagline: string;
   language: string;
+  workspace_label?: string | null;
   created_at: string;
 }
 

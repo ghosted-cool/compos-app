@@ -11,6 +11,31 @@ export class CalendarAuthError extends Error {
   }
 }
 
+export class CalendarApiDisabledError extends Error {
+  constructor(message = "Google Calendar API is disabled in the Google Cloud project") {
+    super(message);
+    this.name = "CalendarApiDisabledError";
+  }
+}
+
+/**
+ * Reads a failed Google Calendar response body, logs it, and throws the most
+ * specific error: API-disabled 403 (project-level), auth failure (401/other
+ * 403), or a generic error with the status.
+ */
+async function throwCalendarError(res: Response, op: string): Promise<never> {
+  const body = await res.text().catch(() => "");
+  console.error(`Google Calendar ${op} failed`, res.status, body);
+  if (
+    res.status === 403 &&
+    (body.includes("accessNotConfigured") || body.includes("has not been used in project"))
+  ) {
+    throw new CalendarApiDisabledError();
+  }
+  if (res.status === 401 || res.status === 403) throw new CalendarAuthError();
+  throw new Error(`Google Calendar ${op} failed: ${res.status}`);
+}
+
 /**
  * Returns a valid Google access token for the user, refreshing it with the
  * stored refresh token when expired. Requires GOOGLE_CLIENT_SECRET for
@@ -111,8 +136,7 @@ export async function listEvents(
   url.searchParams.set("maxResults", "250");
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (res.status === 401 || res.status === 403) throw new CalendarAuthError();
-  if (!res.ok) throw new Error(`Google Calendar list failed: ${res.status}`);
+  if (!res.ok) await throwCalendarError(res, "list");
   const data = await res.json();
   return data.items ?? [];
 }
@@ -135,8 +159,7 @@ export async function createEvent(
     },
     body: JSON.stringify(event),
   });
-  if (res.status === 401 || res.status === 403) throw new CalendarAuthError();
-  if (!res.ok) throw new Error(`Google Calendar insert failed: ${res.status}`);
+  if (!res.ok) await throwCalendarError(res, "insert");
   return res.json();
 }
 
@@ -146,8 +169,7 @@ export async function deleteEvent(userId: string, eventId: string): Promise<void
     `${CALENDAR_API}/calendars/primary/events/${encodeURIComponent(eventId)}`,
     { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
   );
-  if (res.status === 401 || res.status === 403) throw new CalendarAuthError();
   if (!res.ok && res.status !== 410) {
-    throw new Error(`Google Calendar delete failed: ${res.status}`);
+    await throwCalendarError(res, "delete");
   }
 }

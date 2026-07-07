@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import type { Priority, Task } from "@/lib/types";
 
-const TIERS: { key: Priority; label: string; dot: string; text: string; ring: string }[] = [
-  { key: "red", label: "Critical", dot: "bg-tier-red", text: "text-tier-red", ring: "ring-tier-red" },
-  { key: "amber", label: "Important", dot: "bg-tier-amber", text: "text-tier-amber", ring: "ring-tier-amber" },
-  { key: "green", label: "Steady", dot: "bg-tier-green", text: "text-tier-green", ring: "ring-tier-green" },
+const TIERS: { key: Priority; labelKey: string; dot: string; text: string; ring: string }[] = [
+  { key: "red", labelKey: "tasks.critical", dot: "bg-tier-red", text: "text-tier-red", ring: "ring-tier-red" },
+  { key: "amber", labelKey: "tasks.important", dot: "bg-tier-amber", text: "text-tier-amber", ring: "ring-tier-amber" },
+  { key: "green", labelKey: "tasks.steady", dot: "bg-tier-green", text: "text-tier-green", ring: "ring-tier-green" },
 ];
 
 export default function TaskBoard({
@@ -18,6 +19,7 @@ export default function TaskBoard({
   canEdit?: boolean;
 }) {
   const supabase = createClient();
+  const { t: tr } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("green");
@@ -99,7 +101,7 @@ export default function TaskBoard({
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a task…"
+            placeholder={tr("tasks.addTask")}
             className="flex-1 min-w-[180px] px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary transition-colors"
           />
           <div className="flex items-center gap-1 bg-surface rounded-lg border border-outline-soft p-1">
@@ -108,7 +110,7 @@ export default function TaskBoard({
                 key={tier.key}
                 type="button"
                 onClick={() => setPriority(tier.key)}
-                title={tier.label}
+                title={tr(tier.labelKey)}
                 className={`btn-press w-7 h-7 rounded-md flex items-center justify-center ${
                   priority === tier.key ? "bg-surface-high ring-1 ring-outline-soft" : ""
                 }`}
@@ -127,13 +129,13 @@ export default function TaskBoard({
             type="submit"
             className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
           >
-            Add
+            {tr("common.add")}
           </button>
         </form>
       )}
 
       {loading ? (
-        <p className="text-sm text-ink-soft">Loading…</p>
+        <p className="text-sm text-ink-soft">{tr("common.loading")}</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {TIERS.map((tier) => {
@@ -146,7 +148,7 @@ export default function TaskBoard({
                 <header className="flex items-center gap-2 mb-3">
                   <span className={`w-3 h-3 rounded-full ${tier.dot}`} />
                   <h3 className={`text-sm font-bold uppercase tracking-wider ${tier.text}`}>
-                    {tier.label}
+                    {tr(tier.labelKey)}
                   </h3>
                   <span className="ml-auto text-xs text-ink-soft bg-surface-low rounded-full px-2 py-0.5">
                     {tierTasks.length}
@@ -175,7 +177,7 @@ export default function TaskBoard({
                                 : "text-ink-soft"
                             }`}
                           >
-                            Due {task.due_date}
+                            {tr("tasks.due", { date: task.due_date })}
                           </p>
                         )}
                       </div>
@@ -185,7 +187,7 @@ export default function TaskBoard({
                             <button
                               key={t2.key}
                               onClick={() => changePriority(task, t2.key)}
-                              title={`Move to ${t2.label}`}
+                              title={tr("tasks.moveTo", { tier: tr(t2.labelKey) })}
                               className="btn-press w-5 h-5 rounded flex items-center justify-center hover:bg-surface-high"
                             >
                               <span className={`w-2.5 h-2.5 rounded-full ${t2.dot}`} />
@@ -194,7 +196,7 @@ export default function TaskBoard({
                           <button
                             onClick={() => remove(task)}
                             className="btn-press text-ink-soft hover:text-tier-red"
-                            title="Delete"
+                            title={tr("common.delete")}
                           >
                             <span className="material-symbols-outlined text-[16px]">delete</span>
                           </button>
@@ -203,7 +205,7 @@ export default function TaskBoard({
                     </li>
                   ))}
                   {tierTasks.length === 0 && (
-                    <li className="text-xs text-ink-soft px-1 py-2">Nothing here</li>
+                    <li className="text-xs text-ink-soft px-1 py-2">{tr("tasks.nothingHere")}</li>
                   )}
                 </ul>
               </section>
@@ -221,7 +223,7 @@ export default function TaskBoard({
             <span className="material-symbols-outlined text-[18px]">
               {showDone ? "expand_less" : "expand_more"}
             </span>
-            Completed ({done.length})
+            {tr("tasks.completed", { count: done.length })}
           </button>
           {showDone && (
             <ul className="space-y-1.5">

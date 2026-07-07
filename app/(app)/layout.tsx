@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/Sidebar";
@@ -18,7 +19,9 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen bg-surface">
-      <Sidebar />
+      <Suspense>
+        <Sidebar />
+      </Suspense>
       <main className="flex-1 md:ml-[280px] min-h-screen flex flex-col">
         {children}
       </main>

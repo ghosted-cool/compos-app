@@ -4,24 +4,35 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import ChatPanel from "@/components/ChatPanel";
 import ShareModal from "@/components/ShareModal";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/profile";
 import type { Board, Chat } from "@/lib/types";
 
+function CanvasLoading() {
+  const { t } = useTranslation();
+  return (
+    <div className="absolute inset-0 flex items-center justify-center text-ink-soft text-sm">
+      {t("brainstorm.loadingCanvas")}
+    </div>
+  );
+}
+
 const BoardCanvas = dynamic(() => import("@/components/BoardCanvas"), {
   ssr: false,
-  loading: () => (
-    <div className="absolute inset-0 flex items-center justify-center text-ink-soft text-sm">
-      Loading canvas…
-    </div>
-  ),
+  loading: () => <CanvasLoading />,
 });
+
+// Sentinel stored in loadError when the board is simply missing (vs a real
+// Supabase error message that we show verbatim).
+const BOARD_MISSING = "__board_missing__";
 
 function BrainstormInner() {
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
   const boardParam = searchParams.get("board");
   const [boards, setBoards] = useState<Pick<Board, "id" | "title">[]>([]);
   const [board, setBoard] = useState<Board | null>(null);
@@ -94,7 +105,7 @@ function BrainstormInner() {
           setBoards((bs) => [{ id: full.id, title: full.title }, ...bs]);
         }
       } else {
-        setLoadError("This board doesn't exist or you don't have access to it.");
+        setLoadError(BOARD_MISSING);
       }
     }
   }, [supabase, boardParam]);
@@ -118,7 +129,7 @@ function BrainstormInner() {
     if (!user) return;
     const { data } = await supabase
       .from("boards")
-      .insert({ user_id: user.id, title: `Board ${boards.length + 1}` })
+      .insert({ user_id: user.id, title: t("brainstorm.boardN", { n: boards.length + 1 }) })
       .select("*")
       .single();
     if (data) {
@@ -163,7 +174,7 @@ function BrainstormInner() {
                   setSwitcherOpen(false);
                 }}
                 className="btn-press flex items-center gap-1 text-sm font-semibold hover:bg-surface-low rounded-md px-2 py-1"
-                title="Click to switch boards, double-click to rename"
+                title={t("brainstorm.switchHint")}
               >
                 {board?.title ?? "…"}
                 <span className="material-symbols-outlined text-[16px] text-ink-soft">
@@ -189,7 +200,7 @@ function BrainstormInner() {
                   className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-low flex items-center gap-1.5 border-t border-outline-soft mt-1 pt-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">add</span>
-                  New board
+                  {t("brainstorm.newBoard")}
                 </button>
               </div>
             )}
@@ -200,7 +211,7 @@ function BrainstormInner() {
               className="btn-press flex items-center gap-1.5 border border-outline-soft px-3 py-1.5 rounded-lg text-sm hover:bg-surface-low"
             >
               <span className="material-symbols-outlined text-[16px]">share</span>
-              Share
+              {t("common.share")}
             </button>
             <button
               onClick={() => setChatPanelOpen(!chatPanelOpen)}
@@ -211,7 +222,7 @@ function BrainstormInner() {
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">forum</span>
-              Chats
+              {t("brainstorm.chats")}
             </button>
           </div>
         </div>
@@ -224,18 +235,20 @@ function BrainstormInner() {
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
               <span className="material-symbols-outlined text-[40px] text-tier-red">error</span>
               <p className="text-sm text-ink-soft max-w-md">
-                Couldn&apos;t load the board: {loadError}
+                {loadError === BOARD_MISSING
+                  ? t("brainstorm.boardMissing")
+                  : t("brainstorm.loadFailed", { message: loadError })}
               </p>
               <button
                 onClick={load}
                 className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
               >
-                Retry
+                {t("common.retry")}
               </button>
             </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-ink-soft text-sm">
-              Loading board…
+              {t("brainstorm.loadingBoard")}
             </div>
           )}
         </div>
@@ -251,7 +264,7 @@ function BrainstormInner() {
                 className="btn-press flex items-center gap-1.5 px-3 py-2 text-sm text-ink-soft hover:text-ink border-b border-outline-soft"
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                Back to recent chats
+                {t("brainstorm.backToRecent")}
               </button>
               <div className="flex-1 min-h-0">
                 <ChatPanel
@@ -263,12 +276,12 @@ function BrainstormInner() {
             </>
           ) : (
             <div className="p-4 flex flex-col gap-2">
-              <h3 className="text-sm font-bold text-ink mb-1">Recent chats</h3>
+              <h3 className="text-sm font-bold text-ink mb-1">{t("brainstorm.recentChats")}</h3>
               {chats.length === 0 && (
                 <p className="text-xs text-ink-soft">
-                  No chats yet.{" "}
+                  {t("brainstorm.noChats")}{" "}
                   <Link href="/chat?new=1" className="text-primary hover:underline">
-                    Start one
+                    {t("brainstorm.startOne")}
                   </Link>
                   .
                 </p>
@@ -287,7 +300,7 @@ function BrainstormInner() {
                 className="btn-press mt-1 flex items-center justify-center gap-1.5 border border-dashed border-outline-soft rounded-lg px-3 py-2.5 text-sm text-ink-soft hover:text-primary hover:border-primary"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
-                New chat here
+                {t("brainstorm.newChatHere")}
               </button>
             </div>
           )}

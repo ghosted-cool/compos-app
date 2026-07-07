@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SharePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const ran = useRef(false);
 
@@ -35,13 +37,13 @@ export default function SharePage() {
       {failed ? (
         <div className="text-center">
           <span className="material-symbols-outlined text-[48px] text-outline-soft">link_off</span>
-          <p className="text-ink-soft mt-2">This share link is invalid or was revoked.</p>
+          <p className="text-ink-soft mt-2">{t("sharePage.invalid")}</p>
           <Link href="/" className="text-primary hover:underline text-sm mt-2 inline-block">
-            Go home
+            {t("common.goHome")}
           </Link>
         </div>
       ) : (
-        <p className="text-ink-soft text-sm">Opening shared item…</p>
+        <p className="text-ink-soft text-sm">{t("sharePage.opening")}</p>
       )}
     </div>
   );

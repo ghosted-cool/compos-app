@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import BudgetGauge from "@/components/BudgetGauge";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +41,7 @@ function ymd(d: Date) {
 
 export default function BudgetPage() {
   const supabase = createClient();
+  const { t, i18n } = useTranslation();
   const month = monthKey();
 
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -188,7 +190,7 @@ export default function BudgetPage() {
     await supabase.from("budgets").delete().eq("month", month).eq("user_id", userId);
     if (rows.length > 0) {
       const { error } = await supabase.from("budgets").insert(rows);
-      if (error) alert("Could not save the budget: " + error.message);
+      if (error) alert(t("budget.saveBudgetFailed", { message: error.message }));
     }
     load();
   }
@@ -204,7 +206,7 @@ export default function BudgetPage() {
       .select()
       .single();
     if (error) {
-      alert("Could not log the expense: " + error.message);
+      alert(t("budget.logExpenseFailed", { message: error.message }));
       return;
     }
     if (data) setExpenses((prev) => [data, ...prev]);
@@ -230,7 +232,7 @@ export default function BudgetPage() {
       .select()
       .single();
     if (error) {
-      alert("Could not add the planned cost: " + error.message);
+      alert(t("budget.addPlannedFailed", { message: error.message }));
       return;
     }
     if (data) {
@@ -253,21 +255,21 @@ export default function BudgetPage() {
       (new Date(dateStr + "T00:00:00").getTime() - new Date(todayStr + "T00:00:00").getTime()) /
         86400000
     );
-    if (diff <= 0) return "today";
-    if (diff === 1) return "tomorrow";
-    return `in ${diff} days`;
+    if (diff <= 0) return t("budget.today");
+    if (diff === 1) return t("budget.tomorrow");
+    return t("budget.inDays", { count: diff });
   }
 
   const fmt = (n: number) =>
-    n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    n.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="flex-1 px-4 md:px-8 py-8 max-w-6xl w-full mx-auto">
       <header className="mb-6 flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Budget</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("budget.title")}</h1>
           <p className="text-sm text-ink-soft mt-1">
-            {now.toLocaleString(undefined, { month: "long", year: "numeric" })}
+            {now.toLocaleString(i18n.language, { month: "long", year: "numeric" })}
           </p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
@@ -275,7 +277,7 @@ export default function BudgetPage() {
             <select
               value={currency}
               onChange={(e) => changeCurrency(e.target.value)}
-              title="Currency"
+              title={t("budget.currency")}
               className="appearance-none pl-3 pr-8 py-2 text-sm bg-card border border-outline-soft rounded-lg outline-none focus:border-primary cursor-pointer font-medium"
             >
               {CURRENCIES.slice(0, 3).map((c) => (
@@ -299,14 +301,14 @@ export default function BudgetPage() {
             className="btn-press flex items-center gap-2 border border-outline-soft bg-card px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface-low"
           >
             <span className="material-symbols-outlined text-[18px]">table_edit</span>
-            Set budget
+            {t("budget.setBudget")}
           </button>
           <button
             onClick={() => setAddOpen(true)}
             className="btn-press flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
-            Add expense
+            {t("budget.addExpense")}
           </button>
         </div>
       </header>
@@ -316,11 +318,13 @@ export default function BudgetPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           <div className="text-center md:text-left">
             <p className="text-xs font-bold uppercase tracking-wider text-ink-soft mb-1">
-              Spent this month
+              {t("budget.spentThisMonth")}
             </p>
             <p className="text-4xl font-semibold tracking-tight">{sym}{fmt(spent)}</p>
             <p className="text-sm text-ink-soft mt-1">
-              of {effectiveBudget > 0 ? `${sym}${fmt(effectiveBudget)}` : "no budget set"}
+              {effectiveBudget > 0
+                ? t("budget.of", { amount: `${sym}${fmt(effectiveBudget)}` })
+                : t("budget.noBudgetSet")}
             </p>
             {/* progress bar */}
             <div className="w-full bg-surface-highest rounded-full h-2.5 overflow-hidden mt-4">
@@ -343,17 +347,17 @@ export default function BudgetPage() {
 
           <div className="text-center md:text-right">
             <p className="text-xs font-bold uppercase tracking-wider text-ink-soft mb-1">
-              Daily allowance
+              {t("budget.dailyAllowance")}
             </p>
             <p className="text-4xl font-semibold tracking-tight text-primary">
               {sym}{fmt(dailyAllowance)}
             </p>
             <p className="text-sm text-ink-soft mt-1">
-              per day · {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+              {t("budget.daysLeft", { count: daysLeft })}
             </p>
             {plannedThisMonth > 0 && (
               <p className="text-xs text-tier-amber mt-1.5 font-medium">
-                {sym}{fmt(plannedThisMonth)} in planned costs already set aside
+                {t("budget.plannedAside", { amount: `${sym}${fmt(plannedThisMonth)}` })}
               </p>
             )}
           </div>
@@ -364,18 +368,15 @@ export default function BudgetPage() {
       <section className="bg-card border border-outline-soft rounded-xl p-5 mb-5">
         <div className="flex items-center gap-2 mb-1">
           <span className="material-symbols-outlined text-primary text-[20px]">event_upcoming</span>
-          <h3 className="font-semibold">Planned costs</h3>
+          <h3 className="font-semibold">{t("budget.plannedCosts")}</h3>
         </div>
-        <p className="text-xs text-ink-soft mb-4">
-          Upcoming payments you already know about. Anything due before the end of the month is
-          subtracted from the daily allowance above.
-        </p>
+        <p className="text-xs text-ink-soft mb-4">{t("budget.plannedDesc")}</p>
 
         <form onSubmit={addPlanned} className="flex flex-wrap gap-2 mb-4">
           <input
             value={plannedTitle}
             onChange={(e) => setPlannedTitle(e.target.value)}
-            placeholder="e.g. Car payment"
+            placeholder={t("budget.plannedPlaceholder")}
             className="flex-1 min-w-[160px] px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary"
           />
           <div className="flex items-center gap-1 bg-surface border border-outline-soft rounded-lg px-3 focus-within:border-primary">
@@ -400,12 +401,12 @@ export default function BudgetPage() {
             className="btn-press flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
-            Plan it
+            {t("budget.planIt")}
           </button>
         </form>
 
         {planned.length === 0 ? (
-          <p className="text-sm text-ink-soft">No upcoming payments planned.</p>
+          <p className="text-sm text-ink-soft">{t("budget.noPlanned")}</p>
         ) : (
           <div className="space-y-1">
             {planned.map((p) => {
@@ -422,12 +423,12 @@ export default function BudgetPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{p.title}</p>
                       <p className="text-xs text-ink-soft">
-                        {new Date(p.due_date + "T00:00:00").toLocaleDateString(undefined, {
+                        {new Date(p.due_date + "T00:00:00").toLocaleDateString(i18n.language, {
                           month: "short",
                           day: "numeric",
                         })}{" "}
                         · {daysUntil(p.due_date)}
-                        {!counted && " · next month — not counted yet"}
+                        {!counted && ` · ${t("budget.notCounted")}`}
                       </p>
                     </div>
                   </div>
@@ -436,7 +437,7 @@ export default function BudgetPage() {
                     <button
                       onClick={() => deletePlanned(p.id)}
                       className="btn-press opacity-0 group-hover:opacity-100 text-ink-soft hover:text-tier-red transition-opacity"
-                      title="Remove planned cost"
+                      title={t("budget.removePlanned")}
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>
@@ -451,9 +452,9 @@ export default function BudgetPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Category breakdown */}
         <section className="bg-card border border-outline-soft rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Breakdown</h3>
+          <h3 className="font-semibold mb-4">{t("budget.breakdown")}</h3>
           {byCategory.length === 0 ? (
-            <p className="text-sm text-ink-soft">No spending yet this month.</p>
+            <p className="text-sm text-ink-soft">{t("budget.noSpending")}</p>
           ) : (
             <>
               <div className="h-44">
@@ -467,7 +468,7 @@ export default function BudgetPage() {
                         className="w-3 h-3 rounded-full"
                         style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
                       />
-                      <span>{c.name}</span>
+                      <span>{t(`budget.categories.${c.name}`, { defaultValue: c.name })}</span>
                       {categoryBudgets[c.name] && (
                         <span
                           className={`text-xs ${
@@ -490,11 +491,9 @@ export default function BudgetPage() {
 
         {/* Recent transactions */}
         <section className="lg:col-span-2 bg-card border border-outline-soft rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Recent transactions</h3>
+          <h3 className="font-semibold mb-4">{t("budget.recentTransactions")}</h3>
           {expenses.length === 0 ? (
-            <p className="text-sm text-ink-soft">
-              Nothing logged yet. Add your first expense to start the running log.
-            </p>
+            <p className="text-sm text-ink-soft">{t("budget.noTransactions")}</p>
           ) : (
             <div className="space-y-1">
               {expenses.slice(0, 25).map((e) => (
@@ -510,10 +509,11 @@ export default function BudgetPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">
-                        {e.note || e.category}
+                        {e.note || t(`budget.categories.${e.category}`, { defaultValue: e.category })}
                       </p>
                       <p className="text-xs text-ink-soft">
-                        {e.category} · {new Date(e.date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        {t(`budget.categories.${e.category}`, { defaultValue: e.category })} ·{" "}
+                        {new Date(e.date + "T00:00:00").toLocaleDateString(i18n.language, { month: "short", day: "numeric" })}
                       </p>
                     </div>
                   </div>
@@ -543,15 +543,12 @@ export default function BudgetPage() {
             className="bg-card rounded-xl border border-outline-soft shadow-xl w-full max-w-md p-6 max-h-[85vh] overflow-y-auto custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold mb-1">Monthly budget</h2>
-            <p className="text-xs text-ink-soft mb-4">
-              Set an overall cap, split it by category, or both. Overall takes precedence for the
-              gauge.
-            </p>
+            <h2 className="text-lg font-semibold mb-1">{t("budget.monthlyBudget")}</h2>
+            <p className="text-xs text-ink-soft mb-4">{t("budget.budgetHint")}</p>
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-b border-outline-soft">
-                  <td className="py-2.5 font-semibold">Overall</td>
+                  <td className="py-2.5 font-semibold">{t("budget.overall")}</td>
                   <td className="py-2 w-32">
                     <div className="flex items-center gap-1">
                       <span className="text-ink-soft">{sym}</span>
@@ -572,7 +569,7 @@ export default function BudgetPage() {
                         <span className="material-symbols-outlined text-[16px]">
                           {CATEGORY_ICONS[c]}
                         </span>
-                        {c}
+                        {t(`budget.categories.${c}`, { defaultValue: c })}
                       </div>
                     </td>
                     <td className="py-1.5 w-32">
@@ -596,13 +593,13 @@ export default function BudgetPage() {
                 onClick={() => setEditingBudgets(false)}
                 className="btn-press px-4 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-low"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={saveBudgets}
                 className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
               >
-                Save
+                {t("common.save")}
               </button>
             </div>
           </div>
@@ -620,7 +617,7 @@ export default function BudgetPage() {
             className="bg-card rounded-xl border border-outline-soft shadow-xl w-full max-w-sm p-6 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold">Add expense</h2>
+            <h2 className="text-lg font-semibold">{t("budget.addExpense")}</h2>
             <div className="flex items-center gap-2">
               <span className="text-2xl text-ink-soft">{sym}</span>
               <input
@@ -647,14 +644,14 @@ export default function BudgetPage() {
                   <span className="material-symbols-outlined text-[18px]">
                     {CATEGORY_ICONS[c]}
                   </span>
-                  {c}
+                  {t(`budget.categories.${c}`, { defaultValue: c })}
                 </button>
               ))}
             </div>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Note (optional)"
+              placeholder={t("budget.notePlaceholder")}
               className="w-full px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary"
             />
             <input
@@ -669,13 +666,13 @@ export default function BudgetPage() {
                 onClick={() => setAddOpen(false)}
                 className="btn-press px-4 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-low"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
               >
-                Log it
+                {t("budget.logIt")}
               </button>
             </div>
           </form>

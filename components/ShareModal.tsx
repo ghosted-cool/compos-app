@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import type { Permission, Share } from "@/lib/types";
 
@@ -14,6 +15,7 @@ export default function ShareModal({
   onClose: () => void;
 }) {
   const supabase = createClient();
+  const { t } = useTranslation();
   const table = kind === "project" ? "project_shares" : "board_shares";
   const fk = kind === "project" ? "project_id" : "board_id";
 
@@ -57,7 +59,7 @@ export default function ShareModal({
       setShares((s) => [...s, data]);
       if (!sharedWith) copyLink(data.share_token);
     } else if (error?.code === "23505") {
-      alert("Already shared with that email.");
+      alert(t("shareModal.alreadyShared"));
     }
   }
 
@@ -94,7 +96,7 @@ export default function ShareModal({
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">
-            Share this {kind === "project" ? "project" : "board"}
+            {kind === "project" ? t("shareModal.titleProject") : t("shareModal.titleBoard")}
           </h2>
           <button onClick={onClose} className="btn-press text-ink-soft hover:text-ink">
             <span className="material-symbols-outlined">close</span>
@@ -103,17 +105,17 @@ export default function ShareModal({
 
         {/* Permission toggle */}
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm text-ink-soft">New shares can</span>
+          <span className="text-sm text-ink-soft">{t("shareModal.newSharesCan")}</span>
           <div className="flex bg-surface rounded-lg border border-outline-soft p-0.5">
             {(["view", "edit"] as Permission[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPermission(p)}
-                className={`btn-press px-3 py-1 rounded-md text-sm capitalize ${
+                className={`btn-press px-3 py-1 rounded-md text-sm ${
                   permission === p ? "bg-primary text-white" : "text-ink-soft"
                 }`}
               >
-                {p}
+                {t(`shareModal.${p}`)}
               </button>
             ))}
           </div>
@@ -133,7 +135,7 @@ export default function ShareModal({
             disabled={busy}
             className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60"
           >
-            Invite
+            {t("shareModal.invite")}
           </button>
         </form>
 
@@ -146,7 +148,11 @@ export default function ShareModal({
           className="btn-press w-full flex items-center justify-center gap-2 border border-outline-soft rounded-lg py-2 text-sm font-medium hover:bg-surface-low mb-4"
         >
           <span className="material-symbols-outlined text-[18px]">link</span>
-          {copied ? "Link copied!" : linkShares.length > 0 ? "Copy share link" : "Create share link"}
+          {copied
+            ? t("shareModal.linkCopied")
+            : linkShares.length > 0
+              ? t("shareModal.copyLink")
+              : t("shareModal.createLink")}
         </button>
 
         {/* Existing shares */}
@@ -156,13 +162,13 @@ export default function ShareModal({
               <div key={s.id} className="flex items-center gap-2 text-sm">
                 <span className="material-symbols-outlined text-[16px] text-ink-soft">link</span>
                 <span className="flex-1 text-ink-soft truncate">
-                  Anyone with the link · {s.permission}
+                  {t("shareModal.anyoneWithLink", { permission: t(`shareModal.${s.permission}`) })}
                 </span>
                 <button
                   onClick={() => revoke(s.id)}
                   className="btn-press text-xs text-tier-red hover:underline"
                 >
-                  Revoke
+                  {t("shareModal.revoke")}
                 </button>
               </div>
             ))}
@@ -170,22 +176,19 @@ export default function ShareModal({
               <div key={s.id} className="flex items-center gap-2 text-sm">
                 <span className="material-symbols-outlined text-[16px] text-ink-soft">person</span>
                 <span className="flex-1 truncate">{s.shared_with}</span>
-                <span className="text-xs text-ink-soft capitalize">{s.permission}</span>
+                <span className="text-xs text-ink-soft">{t(`shareModal.${s.permission}`)}</span>
                 <button
                   onClick={() => revoke(s.id)}
                   className="btn-press text-xs text-tier-red hover:underline"
                 >
-                  Remove
+                  {t("shareModal.remove")}
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        <p className="text-xs text-ink-soft mt-4">
-          Invited people sign in with Google using the invited email. Share links grant access to
-          whoever opens them after signing in.
-        </p>
+        <p className="text-xs text-ink-soft mt-4">{t("shareModal.note")}</p>
       </div>
     </div>
   );

@@ -3,24 +3,28 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/profile";
+import { applyLocale } from "@/lib/locale";
 import type { Chat, Profile, Task } from "@/lib/types";
 
 const NAV = [
-  { href: "/", label: "Home", icon: "home" },
-  { href: "/projects", label: "Projects", icon: "folder_open" },
-  { href: "/brainstorm", label: "Brainstorm", icon: "lightbulb" },
-  { href: "/calendar", label: "Calendar", icon: "calendar_today" },
-  { href: "/budget", label: "Budget", icon: "payments" },
-  { href: "/tasks", label: "Tasks", icon: "check_circle" },
+  { href: "/", key: "nav.home", icon: "home" },
+  { href: "/projects", key: "nav.projects", icon: "folder_open" },
+  { href: "/brainstorm", key: "nav.brainstorm", icon: "lightbulb" },
+  { href: "/calendar", key: "nav.calendar", icon: "calendar_today" },
+  { href: "/budget", key: "nav.budget", icon: "payments" },
+  { href: "/tasks", key: "nav.tasks", icon: "check_circle" },
 ];
 
 export default function Sidebar() {
   const supabase = createClient();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t, i18n } = useTranslation();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -61,6 +65,13 @@ export default function Sidebar() {
     load();
   }, [load, pathname]);
 
+  // users.language is the source of truth after login — keep the UI in sync.
+  useEffect(() => {
+    if (profile?.language && profile.language !== i18n.language) {
+      applyLocale(i18n, profile.language);
+    }
+  }, [profile?.language, i18n]);
+
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     const title = newTodo.trim();
@@ -87,6 +98,16 @@ export default function Sidebar() {
     await supabase.from("users").update({ tagline }).eq("id", profile.id);
   }
 
+  async function deleteChat(chatId: string) {
+    if (!confirm(t("sidebar.deleteChatConfirm"))) return;
+    setChats((cs) => cs.filter((c) => c.id !== chatId));
+    await supabase.from("chats").delete().eq("id", chatId);
+    // If the deleted chat is open, move to a fresh one.
+    if (pathname.startsWith("/chat") && searchParams.get("id") === chatId) {
+      router.push("/chat?new=1");
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     router.push("/login");
@@ -99,6 +120,8 @@ export default function Sidebar() {
 
   const firstName =
     profile?.name?.split(" ")[0] ?? profile?.email?.split("@")[0] ?? "";
+
+  const workspaceLabel = profile?.workspace_label?.trim() || "Domain";
 
   const content = (
     <>
@@ -122,7 +145,9 @@ export default function Sidebar() {
         )}
         <div className="min-w-0">
           <h2 className="font-semibold text-primary text-base leading-tight truncate">
-            {firstName ? `${firstName}'s Domain` : "Compos"}
+            {firstName
+              ? t("sidebar.workspaceTitle", { name: firstName, label: workspaceLabel })
+              : "Compos"}
           </h2>
           {editingTagline ? (
             <input
@@ -140,7 +165,7 @@ export default function Sidebar() {
                 setEditingTagline(true);
               }}
               className="text-xs text-ink-soft text-left hover:text-ink transition-colors"
-              title="Click to edit tagline"
+              title={t("sidebar.editTagline")}
             >
               {profile?.tagline ?? "…"}
             </button>
@@ -167,7 +192,7 @@ export default function Sidebar() {
               <span className={`material-symbols-outlined text-[20px] ${active ? "filled" : ""}`}>
                 {item.icon}
               </span>
-              {item.label}
+              {t(item.key)}
             </Link>
           );
         })}
@@ -176,13 +201,15 @@ export default function Sidebar() {
       {/* Quick-add To Do */}
       <div className="mb-5">
         <div className="bg-surface-highest px-3 py-1 rounded-sm text-center mb-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-ink">To Do</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-ink">
+            {t("sidebar.todo")}
+          </h3>
         </div>
         <form onSubmit={addTodo} className="px-1 mb-2">
           <input
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}
-            placeholder="Add a to-do…"
+            placeholder={t("sidebar.addTodo")}
             className="w-full text-sm px-2 py-1.5 bg-card border border-outline-soft rounded-md outline-none focus:border-primary transition-colors"
           />
         </form>
@@ -211,14 +238,14 @@ export default function Sidebar() {
             </li>
           ))}
           {tasks.length === 0 && (
-            <li className="text-xs text-ink-soft px-1">All clear ✨</li>
+            <li className="text-xs text-ink-soft px-1">{t("sidebar.allClear")}</li>
           )}
         </ul>
       </div>
 
       {/* Chats */}
       <div className="bg-card p-3 rounded-lg border border-outline-soft mb-3 flex-1 min-h-0 flex flex-col">
-        <h3 className="text-sm font-bold text-ink mb-2 px-1">Chats</h3>
+        <h3 className="text-sm font-bold text-ink mb-2 px-1">{t("sidebar.chats")}</h3>
         <div className="relative mb-2">
           <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-ink-soft text-[16px]">
             search
@@ -226,24 +253,32 @@ export default function Sidebar() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search chats…"
+            placeholder={t("sidebar.searchChats")}
             className="w-full pl-7 pr-2 py-1 bg-surface border border-outline-soft rounded-md text-xs outline-none focus:border-primary transition-colors"
           />
         </div>
         <ul className="space-y-1.5 overflow-y-auto custom-scrollbar flex-1">
           {filteredChats.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} className="group flex items-center gap-1">
               <Link
                 href={`/chat?id=${c.id}`}
                 onClick={() => setMobileOpen(false)}
-                className="block text-xs text-ink-soft hover:text-ink truncate px-1 transition-colors"
+                className="block text-xs text-ink-soft hover:text-ink truncate px-1 transition-colors flex-1 min-w-0"
               >
                 {c.title}
               </Link>
+              <button
+                onClick={() => deleteChat(c.id)}
+                title={t("sidebar.deleteChat")}
+                aria-label={t("sidebar.deleteChat")}
+                className="btn-press shrink-0 text-ink-soft hover:text-tier-red opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+              >
+                <span className="material-symbols-outlined text-[14px]">delete</span>
+              </button>
             </li>
           ))}
           {filteredChats.length === 0 && (
-            <li className="text-xs text-ink-soft px-1">No chats yet</li>
+            <li className="text-xs text-ink-soft px-1">{t("sidebar.noChats")}</li>
           )}
         </ul>
         <Link
@@ -252,7 +287,7 @@ export default function Sidebar() {
           className="btn-press mt-2 flex items-center justify-center gap-2 w-full py-1.5 bg-surface border border-outline-soft text-ink rounded-lg hover:bg-surface-low text-sm font-medium"
         >
           <span className="material-symbols-outlined text-[16px]">edit_square</span>
-          New Chat
+          {t("sidebar.newChat")}
         </Link>
       </div>
 
@@ -268,14 +303,14 @@ export default function Sidebar() {
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">settings</span>
-          Settings
+          {t("nav.settings")}
         </Link>
         <button
           onClick={signOut}
           className="btn-press flex items-center gap-3 px-3 py-1.5 w-full text-ink-soft rounded-lg hover:bg-surface-high text-sm"
         >
           <span className="material-symbols-outlined text-[20px]">logout</span>
-          Sign out
+          {t("nav.signOut")}
         </button>
       </div>
     </>

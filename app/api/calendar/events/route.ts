@@ -1,11 +1,23 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
+  CalendarApiDisabledError,
   CalendarAuthError,
   createEvent,
   deleteEvent,
   listEvents,
 } from "@/lib/google";
+
+function calendarErrorResponse(e: unknown) {
+  if (e instanceof CalendarApiDisabledError) {
+    return NextResponse.json({ error: "calendar_api_disabled" }, { status: 502 });
+  }
+  if (e instanceof CalendarAuthError) {
+    return NextResponse.json({ error: "calendar_not_connected" }, { status: 401 });
+  }
+  console.error(e);
+  return NextResponse.json({ error: "calendar_error" }, { status: 502 });
+}
 
 export const runtime = "nodejs";
 
@@ -32,11 +44,7 @@ export async function GET(request: Request) {
     const events = await listEvents(user.id, timeMin, timeMax);
     return NextResponse.json({ events });
   } catch (e) {
-    if (e instanceof CalendarAuthError) {
-      return NextResponse.json({ error: "calendar_not_connected" }, { status: 401 });
-    }
-    console.error(e);
-    return NextResponse.json({ error: "calendar_error" }, { status: 502 });
+    return calendarErrorResponse(e);
   }
 }
 
@@ -48,7 +56,7 @@ export async function POST(request: Request) {
     summary?: string;
     description?: string;
     date?: string; // YYYY-MM-DD
-    startTime?: string; // HH:mm (optional → all-day)
+    startTime?: string; // HH:mm (optional means all-day)
     endTime?: string;
   };
   try {
@@ -82,11 +90,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ event });
   } catch (e) {
-    if (e instanceof CalendarAuthError) {
-      return NextResponse.json({ error: "calendar_not_connected" }, { status: 401 });
-    }
-    console.error(e);
-    return NextResponse.json({ error: "calendar_error" }, { status: 502 });
+    return calendarErrorResponse(e);
   }
 }
 
@@ -102,11 +106,7 @@ export async function DELETE(request: Request) {
     await deleteEvent(user.id, id);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof CalendarAuthError) {
-      return NextResponse.json({ error: "calendar_not_connected" }, { status: 401 });
-    }
-    console.error(e);
-    return NextResponse.json({ error: "calendar_error" }, { status: 502 });
+    return calendarErrorResponse(e);
   }
 }
 

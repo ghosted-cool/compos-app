@@ -1,16 +1,20 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 
 const CARDS = [
-  { href: "/projects", title: "Projects", icon: "folder_open", hint: "Organize work into spaces" },
-  { href: "/tasks", title: "Task Bar", icon: "check_circle", hint: "Every task, by priority" },
-  { href: "/brainstorm", title: "Brainstorm", icon: "lightbulb", hint: "Infinite whiteboard" },
-  { href: "/calendar", title: "Calendar", icon: "calendar_today", hint: "Synced with Google" },
-  { href: "/budget", title: "Budget", icon: "payments", hint: "Spending at a glance" },
-  { href: "/chat", title: "Chat", icon: "chat_bubble", hint: "Ask Claude anything" },
+  { href: "/projects", titleKey: "nav.projects", icon: "folder_open", hintKey: "home.projectsHint" },
+  { href: "/tasks", titleKey: "home.taskBar", icon: "check_circle", hintKey: "home.tasksHint" },
+  { href: "/brainstorm", titleKey: "nav.brainstorm", icon: "lightbulb", hintKey: "home.brainstormHint" },
+  { href: "/calendar", titleKey: "nav.calendar", icon: "calendar_today", hintKey: "home.calendarHint" },
+  { href: "/budget", titleKey: "nav.budget", icon: "payments", hintKey: "home.budgetHint" },
+  { href: "/chat", titleKey: "home.chat", icon: "chat_bubble", hintKey: "home.chatHint" },
 ];
 
 export default function HomePage() {
+  const { t } = useTranslation();
   return (
     <div className="flex-1 px-4 md:px-8 pb-16 pt-6 md:pt-10">
       <div className="hidden md:flex justify-center mb-10">
@@ -35,10 +39,10 @@ export default function HomePage() {
                 {card.icon}
               </span>
               <h3 className="text-xl font-bold text-ink group-hover:text-primary transition-colors">
-                {card.title}
+                {t(card.titleKey)}
               </h3>
               <p className="text-xs text-ink-soft mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {card.hint}
+                {t(card.hintKey)}
               </p>
               <div className="absolute inset-0 bg-gradient-to-br from-transparent to-surface-low opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             </Link>

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/profile";
 import { LANGUAGES } from "@/lib/languages";
+import { applyLocale } from "@/lib/locale";
 import type { Profile } from "@/lib/types";
 
 /** Center-crop to a square and downscale, returning a compact JPEG data URL. */
@@ -35,10 +39,15 @@ function downscaleToDataUrl(file: File, size: number): Promise<string> {
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [labelDraft, setLabelDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingLabel, setSavingLabel] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -47,6 +56,7 @@ export default function SettingsPage() {
       if (p) {
         setProfile(p);
         setNameDraft(p.name ?? "");
+        setLabelDraft(p.workspace_label ?? "Domain");
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,10 +78,29 @@ export default function SettingsPage() {
       .eq("id", profile.id);
     setSaving(false);
     if (error) {
-      flash("err", "Could not save the name.");
+      flash("err", t("settings.nameSaveFailed"));
     } else {
       setProfile({ ...profile, name: name || null });
-      flash("ok", "Workspace name saved.");
+      flash("ok", t("settings.nameSaved"));
+    }
+  }
+
+  async function saveLabel() {
+    if (!profile) return;
+    const label = labelDraft.trim().slice(0, 25) || "Domain";
+    if (label === (profile.workspace_label ?? "Domain")) return;
+    setSavingLabel(true);
+    const { error } = await supabase
+      .from("users")
+      .update({ workspace_label: label })
+      .eq("id", profile.id);
+    setSavingLabel(false);
+    if (error) {
+      flash("err", t("settings.labelSaveFailed"));
+    } else {
+      setProfile({ ...profile, workspace_label: label });
+      setLabelDraft(label);
+      flash("ok", t("settings.labelSaved"));
     }
   }
 
@@ -79,22 +108,24 @@ export default function SettingsPage() {
     if (!profile) return;
     const previous = profile.language;
     setProfile({ ...profile, language: code });
+    applyLocale(i18n, code);
     const { error } = await supabase
       .from("users")
       .update({ language: code })
       .eq("id", profile.id);
     if (error) {
       setProfile((p) => (p ? { ...p, language: previous } : p));
-      flash("err", "Could not save the language.");
+      applyLocale(i18n, previous);
+      flash("err", t("settings.languageSaveFailed"));
     } else {
-      flash("ok", "Language saved.");
+      flash("ok", t("settings.languageSaved"));
     }
   }
 
   async function uploadAvatar(file: File) {
     if (!profile) return;
     if (file.size > 10 * 1024 * 1024) {
-      flash("err", "Image must be under 10 MB.");
+      flash("err", t("settings.imageTooBig"));
       return;
     }
     setUploading(true);
@@ -105,7 +136,7 @@ export default function SettingsPage() {
       dataUrl = await downscaleToDataUrl(file, 256);
     } catch {
       setUploading(false);
-      flash("err", "That file doesn't look like a readable image.");
+      flash("err", t("settings.badImage"));
       return;
     }
     const { error } = await supabase
@@ -114,26 +145,45 @@ export default function SettingsPage() {
       .eq("id", profile.id);
     setUploading(false);
     if (error) {
-      flash("err", "Could not save the avatar.");
+      flash("err", t("settings.avatarSaveFailed"));
     } else {
       setProfile({ ...profile, avatar_url: dataUrl });
-      flash("ok", "Avatar updated.");
+      flash("ok", t("settings.avatarUpdated"));
     }
+  }
+
+  async function deleteAccount() {
+    if (!confirm(t("settings.deleteAccountConfirm"))) return;
+    setDeleting(true);
+    const res = await fetch("/api/account/delete", { method: "POST" });
+    if (!res.ok) {
+      setDeleting(false);
+      flash("err", t("settings.deleteFailed"));
+      return;
+    }
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
   if (!profile) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-ink-soft">
-        Loading settings…
+        {t("common.loading")}
       </div>
     );
   }
 
+  const previewTitle = t("sidebar.workspaceTitle", {
+    name: (nameDraft.trim() || "Compos").split(" ")[0],
+    label: labelDraft.trim() || "Domain",
+  });
+
   return (
     <div className="flex-1 px-4 md:px-8 py-8 max-w-2xl w-full mx-auto">
       <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-ink-soft mt-1">Your profile and preferences.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{t("settings.title")}</h1>
+        <p className="text-sm text-ink-soft mt-1">{t("settings.subtitle")}</p>
       </header>
 
       {message && (
@@ -166,7 +216,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div>
-            <p className="text-sm font-semibold mb-1.5">Avatar</p>
+            <p className="text-sm font-semibold mb-1.5">{t("settings.avatar")}</p>
             <input
               ref={fileInput}
               type="file"
@@ -184,20 +234,22 @@ export default function SettingsPage() {
               className="btn-press flex items-center gap-2 border border-outline-soft px-3 py-1.5 rounded-lg text-sm hover:bg-surface-low disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]">upload</span>
-              {uploading ? "Uploading…" : "Upload image"}
+              {uploading ? t("settings.uploading") : t("settings.uploadImage")}
             </button>
           </div>
         </div>
 
         {/* Workspace name */}
         <div>
-          <label className="text-sm font-semibold block mb-1.5">Workspace name</label>
+          <label className="text-sm font-semibold block mb-1.5">
+            {t("settings.workspaceName")}
+          </label>
           <div className="flex gap-2">
             <input
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && saveName()}
-              placeholder="Your name"
+              placeholder={t("settings.namePlaceholder")}
               className="flex-1 px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary"
             />
             <button
@@ -205,18 +257,45 @@ export default function SettingsPage() {
               disabled={saving || nameDraft.trim() === (profile.name ?? "")}
               className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-50"
             >
-              Save
+              {t("common.save")}
             </button>
           </div>
           <p className="text-xs text-ink-soft mt-1.5">
-            Shown in the sidebar as “{(nameDraft.trim() || "Compos").split(" ")[0]}
-            &apos;s Domain”.
+            {t("settings.shownAs", { title: previewTitle })}
           </p>
+        </div>
+
+        {/* Workspace label */}
+        <div>
+          <label className="text-sm font-semibold block mb-1.5">
+            {t("settings.workspaceLabel")}
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={labelDraft}
+              maxLength={25}
+              onChange={(e) => setLabelDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveLabel()}
+              placeholder="Domain"
+              className="flex-1 px-3 py-2 text-sm bg-surface border border-outline-soft rounded-lg outline-none focus:border-primary"
+            />
+            <button
+              onClick={saveLabel}
+              disabled={
+                savingLabel ||
+                (labelDraft.trim() || "Domain") === (profile.workspace_label ?? "Domain")
+              }
+              className="btn-press bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-50"
+            >
+              {t("common.save")}
+            </button>
+          </div>
+          <p className="text-xs text-ink-soft mt-1.5">{t("settings.workspaceLabelHint")}</p>
         </div>
 
         {/* Language */}
         <div>
-          <label className="text-sm font-semibold block mb-1.5">Language</label>
+          <label className="text-sm font-semibold block mb-1.5">{t("settings.language")}</label>
           <div className="relative max-w-xs">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-soft text-[18px] pointer-events-none">
               language
@@ -240,15 +319,50 @@ export default function SettingsPage() {
 
         {/* Email (read-only) */}
         <div>
-          <label className="text-sm font-semibold block mb-1.5">Email</label>
+          <label className="text-sm font-semibold block mb-1.5">{t("settings.email")}</label>
           <div className="flex items-center gap-2 text-sm text-ink-soft bg-surface-low border border-outline-soft rounded-lg px-3 py-2 max-w-md">
             <span className="material-symbols-outlined text-[18px]">mail</span>
             {profile.email}
           </div>
-          <p className="text-xs text-ink-soft mt-1.5">
-            Linked to your Google account — it can&apos;t be changed here.
-          </p>
+          <p className="text-xs text-ink-soft mt-1.5">{t("settings.emailNote")}</p>
         </div>
+      </section>
+
+      {/* Legal */}
+      <section className="bg-card border border-outline-soft rounded-xl p-6 mt-6">
+        <h2 className="text-sm font-semibold mb-3">{t("settings.legal")}</h2>
+        <div className="flex flex-wrap gap-4">
+          <Link
+            href="/privacy"
+            className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+          >
+            <span className="material-symbols-outlined text-[16px]">shield</span>
+            {t("settings.privacyPolicy")}
+          </Link>
+          <Link
+            href="/terms"
+            className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+          >
+            <span className="material-symbols-outlined text-[16px]">gavel</span>
+            {t("settings.termsOfService")}
+          </Link>
+        </div>
+      </section>
+
+      {/* Danger zone */}
+      <section className="bg-card border border-red-200 rounded-xl p-6 mt-6">
+        <h2 className="text-sm font-semibold text-tier-red mb-1.5">
+          {t("settings.dangerZone")}
+        </h2>
+        <p className="text-xs text-ink-soft mb-4">{t("settings.deleteAccountWarning")}</p>
+        <button
+          onClick={deleteAccount}
+          disabled={deleting}
+          className="btn-press flex items-center gap-2 bg-tier-red text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[18px]">delete_forever</span>
+          {deleting ? t("settings.deleting") : t("settings.deleteAccount")}
+        </button>
       </section>
     </div>
   );

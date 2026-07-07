@@ -18,7 +18,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Compos",
   description: "Personal organization: projects, tasks, brainstorm, calendar, budget and chat.",
-  icons: { icon: "/logo.png" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+  },
 };
 
 export default async function RootLayout({

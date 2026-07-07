@@ -16,13 +16,13 @@ function LoginInner() {
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("en");
   const error = searchParams.get("error");
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/home";
 
   // Already signed in? Straight to the app — no second login needed.
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace(next.startsWith("/") ? next : "/");
+      if (session) router.replace(next.startsWith("/") ? next : "/home");
     });
   }, [router, next]);
 

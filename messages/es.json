@@ -237,5 +237,27 @@
   "sharePage": {
     "invalid": "Este enlace de compartición no es válido o fue revocado.",
     "opening": "Abriendo el elemento compartido…"
+  },
+  "landing": {
+    "badge": "Impulsado por Claude",
+    "headline": "Tu centro personal de organización",
+    "subheadline": "Proyectos, tareas, lluvia de ideas, calendario y presupuesto — en un espacio de trabajo tranquilo y ordenado.",
+    "signIn": "Iniciar sesión con Google",
+    "featuresTitle": "Todo en un solo lugar",
+    "chatTitle": "Chatea con Claude",
+    "chatDesc": "Pregunta lo que quieras y recibe ayuda instantánea de Claude, dentro de tu espacio de trabajo.",
+    "brainstormTitle": "Lluvia de ideas",
+    "brainstormDesc": "Una pizarra infinita para esbozar ideas, solo o con colaboradores.",
+    "tasksTitle": "Gestión de tareas",
+    "tasksDesc": "Anota tus tareas, ordénalas por prioridad y deja que lo importante salga a la superficie.",
+    "budgetTitle": "Control de gastos",
+    "budgetDesc": "Define presupuestos mensuales, registra gastos y consulta tu asignación diaria en vivo.",
+    "calendarTitle": "Sincronización de calendario",
+    "calendarDesc": "Consulta y gestiona tus eventos de Google Calendar sin salir de Compos.",
+    "ctaTitle": "¿Listo para organizarte?",
+    "ctaSub": "Inicia sesión con tu cuenta de Google — sin configuración.",
+    "rights": "© {{year}} Compos",
+    "privacy": "Política de privacidad",
+    "terms": "Términos del servicio"
   }
 }

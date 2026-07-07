@@ -237,5 +237,27 @@
   "sharePage": {
     "invalid": "Dieser Freigabelink ist ungültig oder wurde widerrufen.",
     "opening": "Geteiltes Element wird geöffnet…"
+  },
+  "landing": {
+    "badge": "Powered by Claude",
+    "headline": "Dein persönliches Organisations-Hub",
+    "subheadline": "Projekte, Aufgaben, Brainstorming, Kalender und Budget — in einem ruhigen, aufgeräumten Arbeitsbereich.",
+    "signIn": "Mit Google anmelden",
+    "featuresTitle": "Alles an einem Ort",
+    "chatTitle": "Chatte mit Claude",
+    "chatDesc": "Frag Claude alles und erhalte sofort Hilfe — direkt in deinem Arbeitsbereich.",
+    "brainstormTitle": "Brainstorming",
+    "brainstormDesc": "Ein unendliches Whiteboard für deine Ideen — allein oder gemeinsam.",
+    "tasksTitle": "Aufgabenverwaltung",
+    "tasksDesc": "Erfasse Aufgaben, ordne sie nach Priorität und behalte das Wichtige im Blick.",
+    "budgetTitle": "Budgetverwaltung",
+    "budgetDesc": "Lege Monatsbudgets fest, erfasse Ausgaben und sieh dein Tagesbudget in Echtzeit.",
+    "calendarTitle": "Kalender-Synchronisierung",
+    "calendarDesc": "Sieh und verwalte deine Google-Kalender-Termine, ohne Compos zu verlassen.",
+    "ctaTitle": "Bereit, dich zu organisieren?",
+    "ctaSub": "Melde dich mit deinem Google-Konto an — keine Einrichtung nötig.",
+    "rights": "© {{year}} Compos",
+    "privacy": "Datenschutzerklärung",
+    "terms": "Nutzungsbedingungen"
   }
 }

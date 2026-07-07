@@ -235,5 +235,27 @@
   "sharePage": {
     "invalid": "这个分享链接无效或已被撤销。",
     "opening": "正在打开分享的内容…"
+  },
+  "landing": {
+    "badge": "由 Claude 驱动",
+    "headline": "你的个人组织中心",
+    "subheadline": "项目、任务、头脑风暴、日历和预算 — 汇聚在一个安静专注的工作空间。",
+    "signIn": "使用 Google 登录",
+    "featuresTitle": "一切尽在一处",
+    "chatTitle": "与 Claude 聊天",
+    "chatDesc": "在工作空间内随时向 Claude 提问，即刻获得帮助。",
+    "brainstormTitle": "头脑风暴",
+    "brainstormDesc": "一块无限大的白板，独自或与协作者一起勾画想法。",
+    "tasksTitle": "任务管理",
+    "tasksDesc": "记录任务，按优先级排序，让重要的事情浮现出来。",
+    "budgetTitle": "预算跟踪",
+    "budgetDesc": "设定每月预算、记录支出，实时查看每日可用额度。",
+    "calendarTitle": "日历同步",
+    "calendarDesc": "无需离开 Compos，即可查看和管理你的 Google 日历日程。",
+    "ctaTitle": "准备好开始整理了吗？",
+    "ctaSub": "使用 Google 帐号登录，无需任何设置。",
+    "rights": "© {{year}} Compos",
+    "privacy": "隐私政策",
+    "terms": "服务条款"
   }
 }

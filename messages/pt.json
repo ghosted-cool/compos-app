@@ -237,5 +237,27 @@
   "sharePage": {
     "invalid": "Este link de compartilhamento é inválido ou foi revogado.",
     "opening": "Abrindo o item compartilhado…"
+  },
+  "landing": {
+    "badge": "Com tecnologia Claude",
+    "headline": "Seu hub pessoal de organização",
+    "subheadline": "Projetos, tarefas, brainstorming, calendário e orçamento — em um espaço de trabalho calmo e organizado.",
+    "signIn": "Entrar com o Google",
+    "featuresTitle": "Tudo em um só lugar",
+    "chatTitle": "Converse com o Claude",
+    "chatDesc": "Pergunte o que quiser e receba ajuda instantânea do Claude, dentro do seu espaço de trabalho.",
+    "brainstormTitle": "Brainstorm",
+    "brainstormDesc": "Um quadro branco infinito para esboçar ideias, sozinho ou com colaboradores.",
+    "tasksTitle": "Gestão de tarefas",
+    "tasksDesc": "Registre tarefas, ordene por prioridade e deixe o importante vir à tona.",
+    "budgetTitle": "Controle de orçamento",
+    "budgetDesc": "Defina orçamentos mensais, registre despesas e acompanhe sua cota diária em tempo real.",
+    "calendarTitle": "Sincronização de calendário",
+    "calendarDesc": "Veja e gerencie seus eventos do Google Agenda sem sair do Compos.",
+    "ctaTitle": "Pronto para se organizar?",
+    "ctaSub": "Entre com sua conta Google — sem configuração.",
+    "rights": "© {{year}} Compos",
+    "privacy": "Política de Privacidade",
+    "terms": "Termos de Serviço"
   }
 }

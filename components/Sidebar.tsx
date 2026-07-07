@@ -11,7 +11,7 @@ import { applyLocale } from "@/lib/locale";
 import type { Chat, Profile, Task } from "@/lib/types";
 
 const NAV = [
-  { href: "/", key: "nav.home", icon: "home" },
+  { href: "/home", key: "nav.home", icon: "home" },
   { href: "/projects", key: "nav.projects", icon: "folder_open" },
   { href: "/brainstorm", key: "nav.brainstorm", icon: "lightbulb" },
   { href: "/calendar", key: "nav.calendar", icon: "calendar_today" },
@@ -176,8 +176,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="space-y-0.5 mb-5">
         {NAV.map((item) => {
-          const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

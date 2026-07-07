@@ -32,14 +32,17 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // "/" is the public landing page; signed-in users skip it (below).
+  const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-  // Already signed in — never show the login screen again.
-  if (user && pathname.startsWith("/login")) {
+  // Already signed in — skip the landing/login screens and go to the app.
+  if (user && (pathname === "/" || pathname.startsWith("/login"))) {
     const url = request.nextUrl.clone();
     const next = url.searchParams.get("next");
     url.pathname =
-      next && next.startsWith("/") && !next.startsWith("/login") ? next : "/";
+      next && next.startsWith("/") && next !== "/" && !next.startsWith("/login")
+        ? next
+        : "/home";
     url.search = "";
     return NextResponse.redirect(url);
   }

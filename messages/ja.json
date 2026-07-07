@@ -235,5 +235,27 @@
   "sharePage": {
     "invalid": "この共有リンクは無効か、取り消されています。",
     "opening": "共有アイテムを開いています…"
+  },
+  "landing": {
+    "badge": "Claude 搭載",
+    "headline": "あなた専用の整理整頓ハブ",
+    "subheadline": "プロジェクト、タスク、ブレインストーミング、カレンダー、予算管理 — すべてをひとつの落ち着いたワークスペースに。",
+    "signIn": "Google でログイン",
+    "featuresTitle": "すべてをひとつの場所に",
+    "chatTitle": "Claude とチャット",
+    "chatDesc": "ワークスペースの中で、Claude に何でも質問してすぐに答えを得られます。",
+    "brainstormTitle": "ブレインストーム",
+    "brainstormDesc": "アイデアを自由に描ける無限のホワイトボード。ひとりでも、仲間とでも。",
+    "tasksTitle": "タスク管理",
+    "tasksDesc": "タスクを記録し、優先度で並べて、大事なことに集中できます。",
+    "budgetTitle": "予算管理",
+    "budgetDesc": "月ごとの予算を設定し、支出を記録して、1日に使える金額をリアルタイムで確認。",
+    "calendarTitle": "カレンダー同期",
+    "calendarDesc": "Compos を離れずに Google カレンダーの予定を確認・管理できます。",
+    "ctaTitle": "さっそく整理を始めましょう",
+    "ctaSub": "Google アカウントでログインするだけ。設定は不要です。",
+    "rights": "© {{year}} Compos",
+    "privacy": "プライバシーポリシー",
+    "terms": "利用規約"
   }
 }

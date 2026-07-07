@@ -6,7 +6,7 @@ import { encrypt } from "@/lib/crypto";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/home";
 
   if (code) {
     const supabase = await createClient();
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       } catch (e) {
         console.error("Post-login setup failed", e);
       }
-      const safeNext = next.startsWith("/") ? next : "/";
+      const safeNext = next.startsWith("/") && next !== "/" ? next : "/home";
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
     console.error("exchangeCodeForSession failed", error);

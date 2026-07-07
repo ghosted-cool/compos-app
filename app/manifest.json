@@ -1,6 +1,6 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "Compos",
+  "short_name": "Compos",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
